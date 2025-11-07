@@ -23,6 +23,7 @@ public interface SalesOrderMapper {
     @Mapping(target = "totalAmount", ignore = true)
     @Mapping(target = "shipment", ignore = true)
     SalesOrder
+
     toEntity(SalesOrderRequest request);
     @Mapping(source = "client.id", target = "clientId")
     @Mapping(source = "client.name", target = "clientName")
