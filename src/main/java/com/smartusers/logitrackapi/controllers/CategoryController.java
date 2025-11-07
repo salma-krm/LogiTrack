@@ -19,35 +19,35 @@ public class CategoryController {
 
     private final CategoryService categoryService;
 
-
+    @RequireAuth
     @RequireRole("ADMIN")
     @PostMapping
     public Category createCategory(@RequestBody Category category) {
         return categoryService.createCategory(category);
     }
-
-
+    @RequireAuth
     @RequireRole("ADMIN")
     @GetMapping
     public List<Category> getAllCategories() {
         return categoryService.getAllCategories();
     }
 
-
+    @RequireAuth
     @RequireRole("ADMIN")
     @GetMapping("/{id}")
     public Category getCategoryById(@PathVariable Long id) {
         return categoryService.getCategoryById(id);
     }
 
-
+    @RequireAuth
     @RequireRole("ADMIN")
     @PutMapping("/{id}")
     public Category updateCategory(@PathVariable Long id, @RequestBody Category category) {
         return categoryService.updateCategory(id, category);
+
     }
 
-
+    @RequireAuth
     @RequireRole("ADMIN")
     @DeleteMapping("/{id}")
     public void deleteCategory(@PathVariable Long id) {

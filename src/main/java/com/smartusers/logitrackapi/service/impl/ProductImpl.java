@@ -1,6 +1,5 @@
 package com.smartusers.logitrackapi.service.impl;
 
-
 import com.smartusers.logitrackapi.entity.Product;
 import com.smartusers.logitrackapi.repository.ProductRepository;
 import com.smartusers.logitrackapi.service.interfaces.ProductService;
@@ -17,6 +16,10 @@ public class ProductImpl implements ProductService {
 
     @Override
     public Product createProduct(Product product) {
+
+        if (productRepository.existsBySku(product.getSku())) {
+            throw new RuntimeException("Le SKU existe déjà : " + product.getSku());
+        }
         return productRepository.save(product);
     }
 
@@ -34,6 +37,12 @@ public class ProductImpl implements ProductService {
     @Override
     public Product updateProduct(Long id, Product product) {
         Product existing = getProductById(id);
+
+        // Vérifier si le nouveau SKU est utilisé par un autre produit
+        if (!existing.getSku().equals(product.getSku()) && productRepository.existsBySku(product.getSku())) {
+            throw new RuntimeException("Le SKU existe déjà : " + product.getSku());
+        }
+
         existing.setName(product.getName());
         existing.setSku(product.getSku());
         existing.setCategory(product.getCategory());
@@ -48,4 +57,9 @@ public class ProductImpl implements ProductService {
     public void deleteProduct(Long id) {
         productRepository.deleteById(id);
     }
+    @Override
+    public List<Product> searchProductsByName(String name) {
+        return productRepository.findByNameContainingIgnoreCase(name);
+    }
+
 }

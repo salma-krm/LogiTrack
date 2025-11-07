@@ -1,29 +1,40 @@
 package com.smartusers.logitrackapi.entity;
 
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Id;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+
 import java.math.BigDecimal;
 
 @Entity
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class SalesOrderLine {
+@Table(name="sales")
 
+public class SalesOrderLine {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Integer quantity;
-    private BigDecimal unitPrice;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "sales_order_id", nullable = false)
+    @JsonBackReference
+    private SalesOrder salesOrder;
 
-    @ManyToOne
-    @JoinColumn(name = "product_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    @ManyToOne
-    @JoinColumn(name = "sales_order_id")
-    private SalesOrder salesOrder;
+    @Min(1)
+    @Column(name = "qty_ordered", nullable = false)
+    private int qtyOrdered;
+
+    @Min(0)
+    @Column(name = "qty_reserved", nullable = false)
+    private int qtyReserved;
+
+    @DecimalMin("0.0")
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
 }

@@ -16,9 +16,7 @@ public class Shipment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String trackingNumber;
-
     @Enumerated(EnumType.STRING)
     private ShipmentStatus status;
 
@@ -28,4 +26,7 @@ public class Shipment {
     @ManyToOne
     @JoinColumn(name = "carrier_id")
     private Carrier carrier;
+    @OneToOne
+    @JoinColumn(name = "sales_order_id")
+    private SalesOrder salesOrder;
 }

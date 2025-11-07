@@ -1,5 +1,6 @@
 package com.smartusers.logitrackapi.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -13,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class Product {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -34,7 +36,4 @@ public class Product {
     @Column(nullable = false)
     private Boolean active = true;
 
-
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
-    private List<Inventory> inventories;
 }

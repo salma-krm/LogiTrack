@@ -29,14 +29,12 @@ public class SecurityAspect {
         }
         log.info(" Authentification réussie pour la méthode {}", joinPoint.getSignature().getName());
     }
-
-
     @Before("@annotation(requireRole)")
     public void checkRole(JoinPoint joinPoint, RequireRole requireRole) {
         String sessionId = request.getHeader("Session-Id");
 
         if (sessionId == null || !sessionManager.isValidSession(sessionId)) {
-            throw new SecurityException("⚠️ Accès refusé : utilisateur non authentifié !");
+            throw new SecurityException(" Accès refusé : utilisateur non authentifié !");
         }
 
         User user = sessionManager.getUserBySessionId(sessionId);
