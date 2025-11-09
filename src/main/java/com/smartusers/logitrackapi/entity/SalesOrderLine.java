@@ -1,18 +1,22 @@
 package com.smartusers.logitrackapi.entity;
 
-
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import jakarta.persistence.Id;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
+import lombok.*;
 
 import java.math.BigDecimal;
 
 @Entity
-@Table(name="sales")
-
+@Table(name = "sales_order_lines")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class SalesOrderLine {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,6 +39,6 @@ public class SalesOrderLine {
     private int qtyReserved;
 
     @DecimalMin("0.0")
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 }

@@ -2,6 +2,7 @@ package com.smartusers.logitrackapi.service.impl;
 
 import com.smartusers.logitrackapi.dto.salesorder.SalesOrderRequest;
 import com.smartusers.logitrackapi.entity.*;
+import com.smartusers.logitrackapi.enums.OrderStatus;
 import com.smartusers.logitrackapi.enums.SalesOrderStatus;
 import com.smartusers.logitrackapi.repository.*;
 import com.smartusers.logitrackapi.service.interfaces.InventoryService;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -25,64 +27,79 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final UserRepository userRepository;
     private final InventoryService inventoryService;
     private final InventoryRepository inventoryRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final ProductRepository productRepository;
 
     @Override
+
+    @Transactional
     public SalesOrder create(SalesOrderRequest request) {
         User client = userRepository.findById(request.getClientId())
                 .orElseThrow(() -> new RuntimeException("Client non trouvé"));
 
-        // إنشاء SalesOrder بالـ status CREATED
-        SalesOrder order = salesOrderRepository.save(
-                SalesOrder.builder()
-                        .client(client)
-                        .warehouseId(request.getWarehouseId())
-                        .notes(request.getNotes())
-                        .status(SalesOrderStatus.CREATED)
-                        .createdAt(LocalDateTime.now())
-                        .build()
-        );
+        Warehouse warehouse = warehouseRepository.findById(request.getWarehouseId())
+                .orElseThrow(() -> new RuntimeException("Entrepôt non trouvé"));
 
-        // إضافة SalesOrderLines
-        request.getOrderLines().forEach(lineReq -> {
-            salesOrderLineRepository.save(
-                    SalesOrderLine.builder()
-                            .salesOrder(order)
-                            .productId(lineReq.getProductId())
-                            .qtyOrdered(lineReq.getQuantity())
-                            .qtyReserved(0)
-                            .price(lineReq.getUnitPrice())
-                            .build()
-            );
-        });
+        // Create the order WITHOUT lines first
+        SalesOrder order = SalesOrder.builder()
+                .client(client)
+                .warehouse(warehouse)
+                .status(OrderStatus.CREATED)
+                .createdAt(LocalDateTime.now())
+                .lines(new ArrayList<>())  // Initialize empty list
+                .build();
 
-        return order;
+        // Save and flush to get the ID
+        order = salesOrderRepository.saveAndFlush(order);
+
+        // NOW add the lines
+        for (var lineReq : request.getOrderLines()) {
+            Product product = productRepository.findById(lineReq.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+
+            SalesOrderLine line = SalesOrderLine.builder()
+                    .salesOrder(order)
+                    .product(product)
+                    .qtyOrdered(lineReq.getQuantity())
+                    .qtyReserved(0)
+                    .price(lineReq.getUnitPrice())
+                    .build();
+
+            order.getLines().add(line);
+        }
+
+        // Save again with the lines
+        return salesOrderRepository.save(order);
     }
+
+
+
+
 
     @Override
     public SalesOrder confirmerOrderByClient(SalesOrder order) {
+        SalesOrderLine salesOrderLine = salesOrderLineRepository.findFirstBySalesOrder_Id(order.getId());
+        Inventory salesOrder = inventoryRepository.findInventoryByWarehouseAndProduct(order.getWarehouse().getId(),salesOrderLine.getProduct().getId());
         boolean allReserved = true;
-
-        List<SalesOrderLine> lines = salesOrderLineRepository.findBySalesOrderId(order.getId());
+        List<SalesOrderLine> lines = salesOrderLineRepository.findBySalesOrder_Id(order.getId());
         for (SalesOrderLine line : lines) {
             int needed = line.getQtyOrdered();
             int reserved = 0;
-
-            // محاولة الحجز فالـ warehouse الأصلي
-            int available = inventoryService.getAvailableInWarehouse(line.getProduct().getId(), order.getWarehouseId());
+            int available = inventoryService.checkAvailableByWarehouse(line.getProduct().getId(), order.getWarehouse().getId());
             int toReserve = Math.min(available, needed);
             if (toReserve > 0) {
-                Inventory inv = inventoryRepository.findByWarehouse_IdAndProduct_Id(order.getWarehouseId(), line.getProduct().getId()).get();
+                Inventory inv = inventoryRepository.findInventoryByWarehouseAndProduct(order.getWarehouse().getId(), line.getProduct().getId());
                 inv.setQuantityReserved(inv.getQuantityReserved() + toReserve);
                 inventoryRepository.save(inv);
-                inventoryService.sortieStock(inv.getId(), 0, "Réservation " + toReserve); // تسجيل الحركة
+                inventoryService.sortieStock(inv.getId(), 0, "Réservation " + toReserve);
                 reserved += toReserve;
             }
 
-            // إذا بقى كمية، حاول من باقي warehouses
+
             if (reserved < needed) {
                 List<Inventory> otherInvs = inventoryRepository.findAllAvailableByProduct(line.getProduct().getId());
                 for (Inventory inv : otherInvs) {
-                    if (inv.getWarehouse().getId().equals(order.getWarehouseId())) continue;
+                    if (inv.getWarehouse().getId().equals(order.getWarehouse().getId())) continue;
                     int avail = inv.getQuantityOnHand() - inv.getQuantityReserved();
                     int reserveQty = Math.min(avail, needed - reserved);
                     if (reserveQty > 0) {
@@ -101,9 +118,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             salesOrderLineRepository.save(line);
         }
 
-        // تحديث حالة الطلب
-        if (allReserved) order.setStatus(SalesOrderStatus.RESERVED);
-        else order.setStatus(SalesOrderStatus.PARTIALLY_RESERVED);
+
+        if (allReserved) order.setStatus(OrderStatus.RESERVED);
+        else order.setStatus(OrderStatus.CANCELED);
 
         return salesOrderRepository.save(order);
     }
@@ -112,7 +129,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     public SalesOrder update(Long id, SalesOrderRequest request) {
         SalesOrder order = salesOrderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order non trouvé"));
-        order.setNotes(request.getNotes());
         return salesOrderRepository.save(order);
     }
 
@@ -122,11 +138,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .orElseThrow(() -> new RuntimeException("Order non trouvé"));
     }
 
-    @Override
-    public SalesOrder getByOrderNumber(String orderNumber) {
-        return salesOrderRepository.findByOrderNumber(orderNumber)
-                .orElseThrow(() -> new RuntimeException("Order non trouvé"));
-    }
+//    @Override
+//    public SalesOrder getByOrderNumber(String orderNumber) {
+//        return salesOrderRepository.findByOrderNumber(orderNumber)
+//                .orElseThrow(() -> new RuntimeException("Order non trouvé"));
+//    }
+
 
     @Override
     public Page<SalesOrder> getAll(Pageable pageable) {
@@ -151,21 +168,21 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     @Override
     public SalesOrder cancel(Long id) {
         SalesOrder order = getById(id);
-        order.setStatus(SalesOrderStatus.CANCELLED);
+        order.setStatus(OrderStatus.CANCELED);
         return salesOrderRepository.save(order);
     }
 
     @Override
     public SalesOrder markAsShipped(Long id) {
         SalesOrder order = getById(id);
-        order.setStatus(SalesOrderStatus.SHIPPED);
+        order.setStatus(OrderStatus.SHIPPED);
         return salesOrderRepository.save(order);
     }
 
     @Override
     public SalesOrder markAsDelivered(Long id) {
         SalesOrder order = getById(id);
-        order.setStatus(SalesOrderStatus.DELIVERED);
+        order.setStatus(OrderStatus.DELIVERED);
         return salesOrderRepository.save(order);
     }
 

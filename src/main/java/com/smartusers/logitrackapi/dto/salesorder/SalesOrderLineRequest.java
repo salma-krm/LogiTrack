@@ -1,10 +1,8 @@
 package com.smartusers.logitrackapi.dto.salesorder;
 
-
 import jakarta.validation.constraints.*;
 import lombok.*;
 import java.math.BigDecimal;
-
 @Data
 @Builder
 @NoArgsConstructor

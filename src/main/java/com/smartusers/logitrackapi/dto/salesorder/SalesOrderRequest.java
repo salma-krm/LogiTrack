@@ -1,4 +1,5 @@
 package com.smartusers.logitrackapi.dto.salesorder;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;

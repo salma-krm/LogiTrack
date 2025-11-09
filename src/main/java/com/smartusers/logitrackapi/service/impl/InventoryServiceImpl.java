@@ -116,6 +116,7 @@ public class InventoryServiceImpl implements InventoryService {
         return inv.getQuantityOnHand() - inv.getQuantityReserved();
     }
 
+
     @Override
     public Integer checkAvailableInAllWarehouses(Long productId) {
         List<Inventory> list = inventoryRepository.findAllAvailableByProduct(productId);

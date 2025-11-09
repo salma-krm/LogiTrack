@@ -19,7 +19,7 @@ public interface SalesOrderService {
 
     SalesOrder getById(Long id);
 
-    SalesOrder getByOrderNumber(String orderNumber);
+//    SalesOrder getByOrderNumber(String orderNumber);
 
     Page<SalesOrder> getAll(Pageable pageable);
 

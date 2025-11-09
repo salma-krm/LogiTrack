@@ -16,34 +16,18 @@ import java.util.Optional;
 @Repository
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
 
-    Optional<SalesOrder> findByOrderNumber(String orderNumber);
+    // 🔹 Rechercher par numéro de commande
+//    Optional<SalesOrder> findByOrderNumber(String orderNumber);
 
-    List<SalesOrder> findByClientId(Long clientId);
+    // 🔹 Rechercher toutes les commandes d’un client (avec pagination)
+    Page<SalesOrder> findByClient_Id(Long clientId, Pageable pageable);
 
-    Page<SalesOrder> findByClientId(Long clientId, Pageable pageable);
-
-    List<SalesOrder> findByStatus(SalesOrderStatus status);
-
+    // 🔹 Rechercher toutes les commandes d’un statut donné (avec pagination)
     Page<SalesOrder> findByStatus(SalesOrderStatus status, Pageable pageable);
 
-    @Query("SELECT so FROM SalesOrder so WHERE so.client.id = :clientId AND so.status = :status")
-    Page<SalesOrder> findByClientIdAndStatus(@Param("clientId") Long clientId,
-                                             @Param("status") SalesOrderStatus status,
-                                             Pageable pageable);
+    // 🔹 Rechercher les commandes d’un client avec un statut donné
+    Page<SalesOrder> findByClient_IdAndStatus(Long clientId, SalesOrderStatus status, Pageable pageable);
 
-    @Query("SELECT so FROM SalesOrder so WHERE so.createdAt >= :startDate AND so.createdAt <= :endDate")
-    List<SalesOrder> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate,
-                                            @Param("endDate") LocalDateTime endDate);
-
-    @Query("SELECT so FROM SalesOrder so WHERE so.status = :status AND so.reservedAt < :expiryDate")
-    List<SalesOrder> findExpiredReservations(@Param("status") SalesOrderStatus status,
-                                             @Param("expiryDate") LocalDateTime expiryDate);
-
-    @Query("SELECT COUNT(so) FROM SalesOrder so WHERE so.status = :status")
-    Long countByStatus(@Param("status") SalesOrderStatus status);
-
-    @Query("SELECT so FROM SalesOrder so WHERE so.warehouse.id = :warehouseId")
-    List<SalesOrder> findByWarehouseId(@Param("warehouseId") Long warehouseId);
-
-    boolean existsByOrderNumber(String orderNumber);
+    // 🔹 Rechercher les commandes créées entre deux dates
+    List<SalesOrder> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);;
 }

@@ -23,6 +23,9 @@ public class Supplier {
     @NotBlank
     private String contactInfo;
 
+    @Column(nullable = false)
+    private Boolean active = true;
+
     @OneToMany(mappedBy = "supplier")
     private List<PurchaseOrder> purchaseOrders;
 }

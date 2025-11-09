@@ -13,19 +13,12 @@ import java.util.List;
 public class SalesOrderResponse {
 
     private Long id;
-    private String orderNumber;
     private Long clientId;
     private String clientName;
     private Long warehouseId;
-    private String warehouseCode;
+    private String warehouseName;
     private SalesOrderStatus status;
     private LocalDateTime createdAt;
-    private LocalDateTime reservedAt;
-    private LocalDateTime shippedAt;
-    private LocalDateTime deliveredAt;
-    private LocalDateTime canceledAt;
-    private BigDecimal totalAmount;
     private String notes;
     private List<SalesOrderLineResponse> orderLines;
-    private ShipmentSummaryResponse shipment;
 }

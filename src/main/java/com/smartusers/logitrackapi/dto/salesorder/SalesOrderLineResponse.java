@@ -13,10 +13,7 @@ public class SalesOrderLineResponse {
     private Long productId;
     private String productSku;
     private String productName;
-    private Integer quantity;
-    private BigDecimal unitPrice;
-    private BigDecimal subtotal;
-    private Integer quantityReserved;
-    private Integer quantityShipped;
-    private Integer pendingQuantity;
+    private int qtyOrdered;
+    private int qtyReserved;
+    private BigDecimal price;
 }
