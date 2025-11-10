@@ -35,7 +35,7 @@ public class SalesOrder {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "warehous_id", nullable = false)
+    @JoinColumn(name = "warehouse_id", nullable = false)
     private Warehouse warehouse;
 
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)

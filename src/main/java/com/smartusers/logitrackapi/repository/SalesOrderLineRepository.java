@@ -15,7 +15,10 @@ public interface SalesOrderLineRepository extends JpaRepository<SalesOrderLine, 
     List<SalesOrderLine> findBySalesOrder_Id(Long salesOrderId);
 
 
-    SalesOrderLine findFirstBySalesOrder_Id(Long salesOrderId);
 
-    List<SalesOrderLine> findByProduct_Id(Long productId);
+
+    SalesOrderLine findFirstBySalesOrder_Id(Long salesOrderId);
+    List<SalesOrderLine> findAllByProduct_Id(Long productId);
+
+    SalesOrderLine findByProduct_Id(Long productId);
 }

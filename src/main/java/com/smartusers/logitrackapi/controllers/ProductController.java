@@ -1,12 +1,16 @@
 package com.smartusers.logitrackapi.controllers;
 import com.smartusers.logitrackapi.annotation.RequireAuth;
 import com.smartusers.logitrackapi.annotation.RequireRole;
+import com.smartusers.logitrackapi.dto.Product.ProductResponse;
 import com.smartusers.logitrackapi.entity.Product;
 import com.smartusers.logitrackapi.service.interfaces.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
+import static org.springframework.http.ResponseEntity.ok;
 
 @RestController
 @RequestMapping("/api/products")
@@ -48,5 +52,12 @@ public class ProductController {
     public List<Product> searchProductsByName(@RequestParam("name") String name) {
         return productService.searchProductsByName(name);
     }
+ @PatchMapping("/{sku}/desactivate")
+    public ResponseEntity<ProductResponse> desactivateProduct(@PathVariable("sku") String sku) {
+     ProductResponse product = productService.desactivitedProduct(sku);
+     return ResponseEntity.ok(product);
+
+ }
+
 
 }

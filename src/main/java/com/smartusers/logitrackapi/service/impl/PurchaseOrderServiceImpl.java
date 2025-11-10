@@ -38,8 +38,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (!Boolean.TRUE.equals(supplier.getActive())) {
             throw new RuntimeException("Fournisseur inactif");
         }
-
-        // Changement ici : statut initial = RECEIVED
         PurchaseOrder po = PurchaseOrder.builder()
                 .supplier(supplier)
                 .status(POStatus.RECEIVED)
@@ -57,14 +55,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     .purchaseOrder(po)
                     .product(product)
                     .quantityOrdered(lineReq.getQuantity())
-                    .quantityReceived(lineReq.getQuantity()) // car déjà reçu
+                    .quantityReceived(lineReq.getQuantity())
                     .unitPrice(lineReq.getUnitPrice())
                     .build();
 
             POLine savedLine = poLineRepository.save(line);
             po.getLines().add(savedLine);
 
-            // Ajouter stock directement puisque PO = RECEIVED
             Warehouse warehouse = warehouseRepository.findAll().stream()
                     .filter(Warehouse::getActive)
                     .findFirst()
@@ -102,14 +99,10 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         if (po.getStatus() != POStatus.DRAFT) {
             throw new RuntimeException("Impossible de modifier une commande qui n'est pas en brouillon");
         }
-
-        // Supprimer les anciennes lignes (si موجودة)
         if (po.getLines() != null && !po.getLines().isEmpty()) {
             poLineRepository.deleteAll(po.getLines());
             po.getLines().clear();
         }
-
-        // Ajouter les nouvelles lignes
         for (var lineReq : request.getOrderLines()) {
             Product product = productRepository.findById(lineReq.getProductId())
                     .orElseThrow(() -> new RuntimeException("Produit non trouvé"));

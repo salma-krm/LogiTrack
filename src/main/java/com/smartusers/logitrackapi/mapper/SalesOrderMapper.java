@@ -19,8 +19,6 @@ public interface SalesOrderMapper {
 
     @Mapping(source = "client.id", target = "clientId")
     @Mapping(source = "client.firstName", target = "clientName")
-    @Mapping(source = "warehouse.id", target = "warehouseId")
-    @Mapping(source = "warehouse.name", target = "warehouseName")
     @Mapping(source = "lines", target = "orderLines")
     SalesOrderResponse toResponse(SalesOrder salesOrder);
 

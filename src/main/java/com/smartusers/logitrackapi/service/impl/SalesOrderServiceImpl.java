@@ -1,5 +1,7 @@
 package com.smartusers.logitrackapi.service.impl;
 
+import com.smartusers.logitrackapi.Exception.BusinessException;
+import com.smartusers.logitrackapi.Exception.ResourceNotFoundException;
 import com.smartusers.logitrackapi.dto.salesorder.SalesOrderRequest;
 import com.smartusers.logitrackapi.entity.*;
 import com.smartusers.logitrackapi.enums.OrderStatus;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -40,19 +43,16 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         Warehouse warehouse = warehouseRepository.findById(request.getWarehouseId())
                 .orElseThrow(() -> new RuntimeException("Entrepôt non trouvé"));
 
-        // Create the order WITHOUT lines first
+
         SalesOrder order = SalesOrder.builder()
                 .client(client)
                 .warehouse(warehouse)
                 .status(OrderStatus.CREATED)
                 .createdAt(LocalDateTime.now())
-                .lines(new ArrayList<>())  // Initialize empty list
+                .lines(new ArrayList<>())
                 .build();
-
-        // Save and flush to get the ID
         order = salesOrderRepository.saveAndFlush(order);
 
-        // NOW add the lines
         for (var lineReq : request.getOrderLines()) {
             Product product = productRepository.findById(lineReq.getProductId())
                     .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
@@ -68,46 +68,74 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             order.getLines().add(line);
         }
 
-        // Save again with the lines
+
         return salesOrderRepository.save(order);
     }
 
 
-
-
-
     @Override
     public SalesOrder confirmerOrderByClient(SalesOrder order) {
-        SalesOrderLine salesOrderLine = salesOrderLineRepository.findFirstBySalesOrder_Id(order.getId());
-        Inventory salesOrder = inventoryRepository.findInventoryByWarehouseAndProduct(order.getWarehouse().getId(),salesOrderLine.getProduct().getId());
         boolean allReserved = true;
         List<SalesOrderLine> lines = salesOrderLineRepository.findBySalesOrder_Id(order.getId());
+
         for (SalesOrderLine line : lines) {
             int needed = line.getQtyOrdered();
             int reserved = 0;
+
+            // 🔹 Vérifier disponibilité dans le même entrepôt
+            Optional<Inventory> optInv = inventoryRepository.findByWarehouse_IdAndProduct_Id(
+                    order.getWarehouse().getId(), line.getProduct().getId()
+            );
+
+            Inventory inv = optInv.orElseThrow(() -> new BusinessException(
+                    "Inventaire manquant pour le produit " + line.getProduct().getId() +
+                            " dans l'entrepôt " + order.getWarehouse().getName()
+            ));
+
             int available = inventoryService.checkAvailableByWarehouse(line.getProduct().getId(), order.getWarehouse().getId());
             int toReserve = Math.min(available, needed);
+
             if (toReserve > 0) {
-                Inventory inv = inventoryRepository.findInventoryByWarehouseAndProduct(order.getWarehouse().getId(), line.getProduct().getId());
                 inv.setQuantityReserved(inv.getQuantityReserved() + toReserve);
                 inventoryRepository.save(inv);
-                inventoryService.sortieStock(inv.getId(), 0, "Réservation " + toReserve);
+                inventoryService.sortieStock(inv.getId(), toReserve, "Réservation locale " + toReserve);
                 reserved += toReserve;
             }
 
-
+            // 🔹 Si stock insuffisant, chercher dans d'autres entrepôts
             if (reserved < needed) {
                 List<Inventory> otherInvs = inventoryRepository.findAllAvailableByProduct(line.getProduct().getId());
-                for (Inventory inv : otherInvs) {
-                    if (inv.getWarehouse().getId().equals(order.getWarehouse().getId())) continue;
-                    int avail = inv.getQuantityOnHand() - inv.getQuantityReserved();
-                    int reserveQty = Math.min(avail, needed - reserved);
-                    if (reserveQty > 0) {
-                        inv.setQuantityReserved(inv.getQuantityReserved() + reserveQty);
-                        inventoryRepository.save(inv);
-                        inventoryService.sortieStock(inv.getId(), 0, "Réservation " + reserveQty);
-                        reserved += reserveQty;
+                for (Inventory sourceInv : otherInvs) {
+                    if (sourceInv.getWarehouse().getId().equals(order.getWarehouse().getId())) continue;
+
+                    int availableOther = sourceInv.getQuantityOnHand() - sourceInv.getQuantityReserved();
+                    int transferQty = Math.min(availableOther, needed - reserved);
+
+                    if (transferQty > 0) {
+                        inventoryService.sortieStock(sourceInv.getId(), transferQty, "Transfert vers " + order.getWarehouse().getName());
+
+                        Inventory destInv = inventoryRepository.findByWarehouse_IdAndProduct_Id(
+                                order.getWarehouse().getId(), line.getProduct().getId()
+                        ).orElseGet(() -> {
+                            Inventory newInv = new Inventory();
+                            newInv.setWarehouse(order.getWarehouse());
+                            newInv.setProduct(line.getProduct());
+                            newInv.setQuantityOnHand(0);
+                            newInv.setQuantityReserved(0);
+                            return newInv;
+                        });
+
+                        destInv.setQuantityOnHand(destInv.getQuantityOnHand() + transferQty);
+                        inventoryRepository.save(destInv);
+
+                        inventoryService.addStock(destInv.getId(), transferQty, "Réception transfert " + transferQty);
+
+                        destInv.setQuantityReserved(destInv.getQuantityReserved() + transferQty);
+                        inventoryRepository.save(destInv);
+
+                        reserved += transferQty;
                     }
+
                     if (reserved >= needed) break;
                 }
             }
@@ -118,12 +146,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             salesOrderLineRepository.save(line);
         }
 
-
-        if (allReserved) order.setStatus(OrderStatus.RESERVED);
-        else order.setStatus(OrderStatus.CANCELED);
+        order.setStatus(allReserved ? OrderStatus.RESERVED : OrderStatus.CANCELED);
 
         return salesOrderRepository.save(order);
     }
+
+
+
 
     @Override
     public SalesOrder update(Long id, SalesOrderRequest request) {
@@ -133,17 +162,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
     @Override
+
     public SalesOrder getById(Long id) {
         return salesOrderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order non trouvé"));
+                .orElseThrow(() -> new ResourceNotFoundException("Commande non trouvée avec l'id: " + id));
     }
-
-//    @Override
-//    public SalesOrder getByOrderNumber(String orderNumber) {
-//        return salesOrderRepository.findByOrderNumber(orderNumber)
-//                .orElseThrow(() -> new RuntimeException("Order non trouvé"));
-//    }
-
 
     @Override
     public Page<SalesOrder> getAll(Pageable pageable) {
@@ -188,7 +211,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
     @Override
     public int releaseExpiredReservations(int expiryDuration) {
-        // يمكن إضافة لوجيك حسب مدة انتهاء الحجز
+
         return 0;
     }
 

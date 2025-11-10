@@ -16,4 +16,5 @@ public class SalesOrderLineResponse {
     private int qtyOrdered;
     private int qtyReserved;
     private BigDecimal price;
+    private  int sales_order_id  ;
 }

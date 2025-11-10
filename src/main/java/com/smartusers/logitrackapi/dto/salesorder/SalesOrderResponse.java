@@ -16,7 +16,6 @@ public class SalesOrderResponse {
     private Long clientId;
     private String clientName;
     private Long warehouseId;
-    private String warehouseName;
     private SalesOrderStatus status;
     private LocalDateTime createdAt;
     private String notes;
