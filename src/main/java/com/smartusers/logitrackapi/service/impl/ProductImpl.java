@@ -41,7 +41,6 @@ public class ProductImpl implements ProductService {
         for (Inventory inventory : inventories) {
             if (inventory.getQuantityReserved() > 0) {
                 throw new RuntimeException("Impossible de désactiver le produit car il y a des quantités réservées en stock.");
-
             }
         }
 

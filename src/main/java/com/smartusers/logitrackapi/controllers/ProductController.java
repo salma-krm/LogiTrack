@@ -52,6 +52,9 @@ public class ProductController {
     public List<Product> searchProductsByName(@RequestParam("name") String name) {
         return productService.searchProductsByName(name);
     }
+
+    @RequireAuth
+    @RequireRole("ADMIN")
  @PatchMapping("/{sku}/desactivate")
     public ResponseEntity<ProductResponse> desactivateProduct(@PathVariable("sku") String sku) {
      ProductResponse product = productService.desactivitedProduct(sku);
