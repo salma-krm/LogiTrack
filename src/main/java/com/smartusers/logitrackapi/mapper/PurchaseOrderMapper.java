@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
 @Component
 @RequiredArgsConstructor
 public class PurchaseOrderMapper {
@@ -23,17 +22,17 @@ public class PurchaseOrderMapper {
         response.setStatus(po.getStatus());
         response.setCreatedAt(po.getCreatedAt());
 
-        // Mapping des lignes
-        List<PurchaseOrderLineResponse> lines = po.getLines() != null ?
-                po.getLines().stream().map(this::toLineResponse).collect(Collectors.toList()) :
-                null;
+
+        List<PurchaseOrderLineResponse> lines = po.getLines() != null
+                ? po.getLines().stream().map(this::toLineResponse).collect(Collectors.toList())
+                : List.of();
 
         response.setLines(lines);
 
-        // Calcul du montant total
-        double totalAmount = lines != null ? lines.stream()
+
+        double totalAmount = lines.stream()
                 .mapToDouble(line -> line.getTotalPrice() != null ? line.getTotalPrice() : 0.0)
-                .sum() : 0.0;
+                .sum();
 
         response.setTotalAmount(totalAmount);
 
@@ -50,7 +49,6 @@ public class PurchaseOrderMapper {
         response.setQuantityOrdered(line.getQuantityOrdered());
         response.setQuantityReceived(line.getQuantityReceived());
 
-        // Conversion BigDecimal -> Double
         Double unitPrice = line.getUnitPrice() != null ? line.getUnitPrice().doubleValue() : 0.0;
         response.setUnitPrice(unitPrice);
 

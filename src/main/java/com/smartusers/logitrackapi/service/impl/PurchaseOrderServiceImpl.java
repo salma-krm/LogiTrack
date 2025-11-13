@@ -1,5 +1,6 @@
 package com.smartusers.logitrackapi.service.impl;
 
+import com.smartusers.logitrackapi.Exception.BusinessException;
 import com.smartusers.logitrackapi.dto.purchaseorder.PurchaseOrderRequest;
 import com.smartusers.logitrackapi.entity.*;
 import com.smartusers.logitrackapi.enums.POStatus;
@@ -26,21 +27,21 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
     private final WarehouseRepository warehouseRepository;
-    private final InventoryService inventoryService;
     private final InventoryRepository inventoryRepository;
-
+    private final InventoryService inventoryService;
 
     @Override
     public PurchaseOrder create(PurchaseOrderRequest request) {
         Supplier supplier = supplierRepository.findById(request.getSupplierId())
-                .orElseThrow(() -> new RuntimeException("Fournisseur non trouvé"));
+                .orElseThrow(() -> new BusinessException("Fournisseur non trouvé"));
 
         if (!Boolean.TRUE.equals(supplier.getActive())) {
-            throw new RuntimeException("Fournisseur inactif");
+            throw new BusinessException("Fournisseur inactif");
         }
+
         PurchaseOrder po = PurchaseOrder.builder()
                 .supplier(supplier)
-                .status(POStatus.RECEIVED)
+                .status(POStatus.CREATED)
                 .createdAt(LocalDateTime.now())
                 .lines(new ArrayList<>())
                 .build();
@@ -49,63 +50,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         for (var lineReq : request.getOrderLines()) {
             Product product = productRepository.findById(lineReq.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+                    .orElseThrow(() -> new BusinessException("Produit non trouvé"));
 
-            POLine line = POLine.builder()
-                    .purchaseOrder(po)
-                    .product(product)
-                    .quantityOrdered(lineReq.getQuantity())
-                    .quantityReceived(lineReq.getQuantity())
-                    .unitPrice(lineReq.getUnitPrice())
-                    .build();
-
-            POLine savedLine = poLineRepository.save(line);
-            po.getLines().add(savedLine);
-
-            Warehouse warehouse = warehouseRepository.findAll().stream()
-                    .filter(Warehouse::getActive)
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Aucun entrepôt actif trouvé"));
-
-            Inventory inventory = inventoryRepository
-                    .findByWarehouse_IdAndProduct_Id(warehouse.getId(), product.getId())
-                    .orElse(null);
-
-            if (inventory != null) {
-                inventoryService.addStock(
-                        inventory.getId(),
-                        line.getQuantityOrdered(),
-                        "Réception PO #" + po.getId()
-                );
-            } else {
-                Inventory newInventory = Inventory.builder()
-                        .warehouse(warehouse)
-                        .product(product)
-                        .quantityOnHand(line.getQuantityOrdered())
-                        .quantityReserved(0)
-                        .build();
-                inventoryService.create(newInventory);
+            if (lineReq.getQuantity() <= 0) {
+                throw new BusinessException("La quantité doit être positive");
             }
-        }
-
-        return purchaseOrderRepository.save(po);
-    }
-
-
-    @Override
-    public PurchaseOrder update(Long id, PurchaseOrderRequest request) {
-        PurchaseOrder po = getById(id);
-
-        if (po.getStatus() != POStatus.DRAFT) {
-            throw new RuntimeException("Impossible de modifier une commande qui n'est pas en brouillon");
-        }
-        if (po.getLines() != null && !po.getLines().isEmpty()) {
-            poLineRepository.deleteAll(po.getLines());
-            po.getLines().clear();
-        }
-        for (var lineReq : request.getOrderLines()) {
-            Product product = productRepository.findById(lineReq.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
 
             POLine line = POLine.builder()
                     .purchaseOrder(po)
@@ -115,17 +64,119 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     .unitPrice(lineReq.getUnitPrice())
                     .build();
 
-            POLine savedLine = poLineRepository.save(line);
-            po.getLines().add(savedLine);
+            poLineRepository.save(line);
+            po.getLines().add(line);
         }
 
         return purchaseOrderRepository.save(po);
     }
 
     @Override
+    public PurchaseOrder update(Long id, PurchaseOrderRequest request) {
+        PurchaseOrder po = getById(id);
+
+        if (po.getStatus() != POStatus.CREATED) {
+            throw new BusinessException("Impossible de modifier une commande qui n'est pas en statut CREATED");
+        }
+
+        if (po.getLines() != null && !po.getLines().isEmpty()) {
+            poLineRepository.deleteAll(po.getLines());
+            po.getLines().clear();
+        }
+
+        for (var lineReq : request.getOrderLines()) {
+            Product product = productRepository.findById(lineReq.getProductId())
+                    .orElseThrow(() -> new BusinessException("Produit non trouvé"));
+
+            POLine line = POLine.builder()
+                    .purchaseOrder(po)
+                    .product(product)
+                    .quantityOrdered(lineReq.getQuantity())
+                    .quantityReceived(0)
+                    .unitPrice(lineReq.getUnitPrice())
+                    .build();
+
+            poLineRepository.save(line);
+            po.getLines().add(line);
+        }
+
+        return purchaseOrderRepository.save(po);
+    }
+
+    @Override
+    public PurchaseOrder approve(Long id) {
+        PurchaseOrder po = getById(id);
+
+        if (po.getStatus() != POStatus.CREATED) {
+            throw new BusinessException("Seules les commandes en statut CREATED peuvent être approuvées. Status actuel: " + po.getStatus());
+        }
+
+        po.setStatus(POStatus.APPROVED);
+        return purchaseOrderRepository.save(po);
+    }
+
+
+    @Override
+    public PurchaseOrder receive(Long id, Long warehouseId) {
+        PurchaseOrder po = getById(id);
+
+        if (po.getStatus() != POStatus.APPROVED) {
+            throw new BusinessException("Seules les commandes approuvées peuvent être reçues");
+        }
+
+        Warehouse warehouse = warehouseRepository.findById(warehouseId)
+                .orElseThrow(() -> new BusinessException("Entrepôt non trouvé"));
+
+        if (!Boolean.TRUE.equals(warehouse.getActive())) {
+            throw new BusinessException("L'entrepôt sélectionné est inactif");
+        }
+
+        for (POLine line : po.getLines()) {
+            line.setQuantityReceived(line.getQuantityOrdered());
+            poLineRepository.save(line);
+
+            Inventory inventory = inventoryRepository
+                    .findByWarehouse_IdAndProduct_Id(warehouse.getId(), line.getProduct().getId())
+                    .orElse(null);
+
+            if (inventory != null) {
+                inventoryService.addStock(
+                        inventory.getId(),
+                        line.getQuantityOrdered(),
+                        "Réception commande achat #" + po.getId()
+                );
+            } else {
+                Inventory newInventory = Inventory.builder()
+                        .warehouse(warehouse)
+                        .product(line.getProduct())
+                        .quantityOnHand(line.getQuantityOrdered())
+                        .quantityReserved(0)
+                        .build();
+
+                inventoryService.create(newInventory);
+            }
+        }
+
+        po.setStatus(POStatus.RECEIVED);
+        return purchaseOrderRepository.save(po);
+    }
+
+    @Override
+    public PurchaseOrder cancel(Long id) {
+        PurchaseOrder po = getById(id);
+
+        if (po.getStatus() == POStatus.RECEIVED) {
+            throw new BusinessException("Impossible d'annuler une commande déjà reçue");
+        }
+
+        po.setStatus(POStatus.CANCELLED);
+        return purchaseOrderRepository.save(po);
+    }
+
+    @Override
     public PurchaseOrder getById(Long id) {
         return purchaseOrderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Commande d'achat non trouvée avec ID: " + id));
+                .orElseThrow(() -> new BusinessException("Commande d'achat non trouvée avec ID: " + id));
     }
 
     @Override
@@ -143,91 +194,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         return purchaseOrderRepository.findBySupplier_Id(supplierId, pageable);
     }
 
-    @Override
-    public Page<PurchaseOrder> getByStatus(POStatus status, Pageable pageable) {
-        return purchaseOrderRepository.findByStatus(status, pageable);
-    }
 
-    @Override
-    public PurchaseOrder changeStatus(Long id, POStatus status) {
-        PurchaseOrder po = getById(id);
-        po.setStatus(status);
-        return purchaseOrderRepository.save(po);
-    }
-
-    @Override
-    public PurchaseOrder approve(Long id) {
-        PurchaseOrder po = getById(id);
-        if (po.getStatus() != POStatus.DRAFT) {
-            throw new RuntimeException("Seules les commandes en brouillon peuvent être approuvées");
-        }
-        po.setStatus(POStatus.APPROVED);
-        return purchaseOrderRepository.save(po);
-    }
-
-    @Override
-    public PurchaseOrder receive(Long id) {
-        PurchaseOrder po = getById(id);
-
-        if (po.getStatus() != POStatus.APPROVED) {
-            throw new RuntimeException("Seules les commandes approuvées peuvent être reçues");
-        }
-
-        Warehouse warehouse = warehouseRepository.findAll().stream()
-                .filter(Warehouse::getActive)
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Aucun entrepôt actif trouvé"));
-
-        for (POLine line : po.getLines()) {
-            line.setQuantityReceived(line.getQuantityOrdered());
-            poLineRepository.save(line);
-
-            Inventory inventory = inventoryRepository
-                    .findByWarehouse_IdAndProduct_Id(warehouse.getId(), line.getProduct().getId())
-                    .orElse(null);
-
-            if (inventory != null) {
-                inventoryService.addStock(
-                        inventory.getId(),
-                        line.getQuantityOrdered(),
-                        "Réception PO #" + po.getId()
-                );
-            } else {
-                Inventory newInventory = Inventory.builder()
-                        .warehouse(warehouse)
-                        .product(line.getProduct())
-                        .quantityOnHand(line.getQuantityOrdered())
-                        .quantityReserved(0)
-                        .build();
-                inventoryService.create(newInventory);
-            }
-        }
-
-        po.setStatus(POStatus.RECEIVED);
-        return purchaseOrderRepository.save(po);
-    }
-
-    @Override
-    public PurchaseOrder cancel(Long id) {
-        PurchaseOrder po = getById(id);
-        if (po.getStatus() == POStatus.RECEIVED) {
-            throw new RuntimeException("Impossible d'annuler une commande déjà reçue");
-        }
-        po.setStatus(POStatus.CANCELLED);
-        return purchaseOrderRepository.save(po);
-    }
-
-    @Override
-    public List<PurchaseOrder> getOrdersBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {
-        return purchaseOrderRepository.findByCreatedAtBetween(startDate, endDate);
-    }
 
     @Override
     public void delete(Long id) {
         PurchaseOrder po = getById(id);
-        if (po.getStatus() != POStatus.DRAFT) {
-            throw new RuntimeException("Seules les commandes en brouillon peuvent être supprimées");
+
+        if (po.getStatus() != POStatus.CREATED && po.getStatus() != POStatus.CANCELLED) {
+            throw new BusinessException("Seules les commandes en statut CREATED ou CANCELLED peuvent être supprimées");
         }
+
         purchaseOrderRepository.deleteById(id);
     }
 }

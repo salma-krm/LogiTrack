@@ -15,11 +15,11 @@ public interface PurchaseOrderService {
     List<PurchaseOrder> getAll();
     Page<PurchaseOrder> getAll(Pageable pageable);
     Page<PurchaseOrder> getBySupplierId(Long supplierId, Pageable pageable);
-    Page<PurchaseOrder> getByStatus(POStatus status, Pageable pageable);
-    PurchaseOrder changeStatus(Long id, POStatus status);
+
+
     PurchaseOrder approve(Long id);
-    PurchaseOrder receive(Long id);
     PurchaseOrder cancel(Long id);
-    List<PurchaseOrder> getOrdersBetweenDates(LocalDateTime startDate, LocalDateTime endDate);
+    PurchaseOrder receive(Long id, Long warehouseId);
+
     void delete(Long id);
 }

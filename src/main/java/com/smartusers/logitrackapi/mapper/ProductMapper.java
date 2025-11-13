@@ -12,11 +12,10 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring")
 public interface ProductMapper {
 
-    // ✅ Entity → DTO
+
     @Mapping(target = "categoryId", source = "category.id")
     ProductResponse toResponse(Product product);
 
-    // ✅ DTO → Entity
     default Product toEntity(ProductRequest request) {
         if (request == null) return null;
 
@@ -37,7 +36,7 @@ public interface ProductMapper {
         return product;
     }
 
-    // ✅ Mise à jour d’un produit existant (utile pour update)
+
     default void updateEntityFromRequest(ProductRequest request, @MappingTarget Product product) {
         if (request == null) return;
 

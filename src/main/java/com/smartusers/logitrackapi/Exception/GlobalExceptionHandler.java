@@ -1,7 +1,7 @@
 package com.smartusers.logitrackapi.Exception;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import com.smartusers.logitrackapi.Exception.ErrorResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,74 +16,86 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
-    // 401 - Unauthorized
+    // 🔒 401 - Unauthorized
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedException ex) {
         log.error("Unauthorized error: {}", ex.getMessage());
         return buildResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED);
     }
 
-    // 403 - Forbidden
+    // 🚫 403 - Forbidden
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException ex) {
         log.error("Forbidden error: {}", ex.getMessage());
         return buildResponse(ex.getMessage(), HttpStatus.FORBIDDEN);
     }
 
-    // 404 - Not Found
+    // 🔍 404 - Resource not found
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
         log.error("Resource not found: {}", ex.getMessage());
         return buildResponse(ex.getMessage(), HttpStatus.NOT_FOUND);
     }
 
-    // 409 - Conflict
+    // ⚔️ 409 - Duplicate resource
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ErrorResponse> handleDuplicate(DuplicateResourceException ex) {
         log.error("Duplicate resource: {}", ex.getMessage());
         return buildResponse(ex.getMessage(), HttpStatus.CONFLICT);
     }
 
-    // 400 - Business Exception
+    // ⚙️ 400 - Business logic error
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(BusinessException ex) {
-        log.error("Business error: {}", ex.getMessage());
+        log.warn("Business error: {}", ex.getMessage());
         return buildResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
-    // Validation errors (@Valid)
+    // 🧾 400 - Validation errors (DTO @Valid)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
-        log.error("Validation error");
-        Map<String, String> errors = new HashMap<>();
+    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
+        log.error("Validation error: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        Map<String, String> fieldErrors = new HashMap<>();
+
         ex.getBindingResult().getAllErrors().forEach(err -> {
             String field = ((FieldError) err).getField();
             String message = err.getDefaultMessage();
-            errors.put(field, message);
+            fieldErrors.put(field, message);
         });
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.BAD_REQUEST.value());
+        body.put("error", "Validation Error");
+        body.put("messages", fieldErrors);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
-    // RuntimeException
+    // ⚠️ Runtime exceptions non prévues
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntime(RuntimeException ex) {
-        log.error("Unexpected error: {}", ex.getMessage(), ex);
-        return buildResponse("Unexpected error: " + ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        log.error("Unexpected runtime error: {}", ex.getMessage(), ex);
+        return buildResponse("Une erreur inattendue est survenue : " + ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // Other exceptions
+    // 💥 Exceptions génériques (fallback)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAll(Exception ex) {
         log.error("System error: {}", ex.getMessage(), ex);
-        return buildResponse("System error occurred. Please contact admin.", HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildResponse("Erreur système interne. Contactez l’administrateur.",
+                HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    // 🔧 Méthode utilitaire pour construire la réponse
     private ResponseEntity<ErrorResponse> buildResponse(String message, HttpStatus status) {
         ErrorResponse error = ErrorResponse.builder()
                 .status(status.value())
                 .message(message)
                 .timestamp(LocalDateTime.now())
                 .build();
+
         return ResponseEntity.status(status).body(error);
     }
 }

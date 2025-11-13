@@ -6,6 +6,7 @@ import org.mapstruct.*;
 import java.util.List;
 
 @Mapper(componentModel = "spring", uses = {SalesOrderLineMapper.class})
+
 public interface SalesOrderMapper {
 
     @Mapping(target = "id", ignore = true)
@@ -24,3 +25,4 @@ public interface SalesOrderMapper {
 
     List<SalesOrderResponse> toResponseList(List<SalesOrder> salesOrders);
 }
+
