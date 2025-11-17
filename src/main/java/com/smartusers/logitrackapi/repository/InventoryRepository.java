@@ -10,13 +10,25 @@ import java.util.Optional;
 
 public interface InventoryRepository extends JpaRepository<Inventory, Long> {
 
-
+    // ⚠️ DEPRECATED : Peut retourner NonUniqueResultException si plusieurs inventaires
+    // Gardez-la uniquement si vous êtes sûr qu'il n'y a qu'UN SEUL inventaire par warehouse/product
+    @Deprecated
     Optional<Inventory> findByWarehouse_IdAndProduct_Id(Long warehouseId, Long productId);
-    @Query("SELECT i FROM Inventory i WHERE i.product.id = :productId AND i.warehouse.id = :warehouseId")
-    List<Inventory> findAllInventoriesByWarehouseAndProduct(@Param("productId") Long productId, @Param("warehouseId") Long warehouseId);
+
+    // ✅ RECOMMANDÉ : Retourne TOUS les inventaires pour un warehouse et un product
+    @Query("SELECT i FROM Inventory i WHERE i.warehouse.id = :warehouseId AND i.product.id = :productId")
+    List<Inventory> findAllByWarehouse_IdAndProduct_Id(
+            @Param("warehouseId") Long warehouseId,
+            @Param("productId") Long productId
+    );
+
+    // Tous les inventaires pour un produit
     List<Inventory> findAllByProduct_Id(Long productId);
 
-    @Query("SELECT i FROM Inventory i WHERE i.product.id = :productId AND i.quantityOnHand - i.quantityReserved > 0 ORDER BY i.warehouse.id ASC")
+    // Tous les inventaires disponibles (quantité > 0) pour un produit
+    @Query("SELECT i FROM Inventory i " +
+            "WHERE i.product.id = :productId " +
+            "AND (i.quantityOnHand - i.quantityReserved) > 0 " +
+            "ORDER BY i.warehouse.id ASC")
     List<Inventory> findAllAvailableByProduct(@Param("productId") Long productId);
-
 }

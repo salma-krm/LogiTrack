@@ -11,7 +11,6 @@ public interface SalesOrderLineMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "salesOrder", ignore = true)
-    @Mapping(target = "product", ignore = true)
     @Mapping(target = "qtyReserved", ignore = true)
     SalesOrderLine toEntity(SalesOrderLineRequest request);
 
@@ -25,3 +24,4 @@ public interface SalesOrderLineMapper {
 
     List<SalesOrderLineResponse> toResponseList(List<SalesOrderLine> salesOrderLines);
 }
+

@@ -25,10 +25,11 @@ public class POLine {
     private PurchaseOrder purchaseOrder;
 
     // Relation ManyToOne vers Product
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "product_id", nullable = false)
     @ToString.Exclude
     private Product product;
+
 
     @Column(name = "quantity_ordered", nullable = false)
     private Integer quantityOrdered;

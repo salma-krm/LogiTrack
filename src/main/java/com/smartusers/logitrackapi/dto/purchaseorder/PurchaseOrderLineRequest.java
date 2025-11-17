@@ -21,4 +21,9 @@ public class PurchaseOrderLineRequest {
     @DecimalMin(value = "0.0", inclusive = false, message = "Le prix unitaire doit être positif")
     @Digits(integer = 15, fraction = 4, message = "Le format du prix unitaire est invalide")
     private BigDecimal unitPrice;
+    public PurchaseOrderLineRequest(Long productId, Integer quantity, BigDecimal unitPrice) {
+        this.productId = productId;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+    }
 }

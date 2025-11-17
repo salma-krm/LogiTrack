@@ -2,12 +2,15 @@ package com.smartusers.logitrackapi.service.impl;
 
 import com.smartusers.logitrackapi.Exception.BusinessException;
 import com.smartusers.logitrackapi.Exception.ResourceNotFoundException;
+import com.smartusers.logitrackapi.dto.purchaseorder.PurchaseOrderLineRequest;
+import com.smartusers.logitrackapi.dto.salesorder.SalesOrderLineRequest;
 import com.smartusers.logitrackapi.dto.salesorder.SalesOrderRequest;
+import com.smartusers.logitrackapi.dto.purchaseorder.PurchaseOrderRequest;
 import com.smartusers.logitrackapi.entity.*;
 import com.smartusers.logitrackapi.enums.OrderStatus;
-import com.smartusers.logitrackapi.enums.SalesOrderStatus;
 import com.smartusers.logitrackapi.repository.*;
 import com.smartusers.logitrackapi.service.interfaces.InventoryService;
+import com.smartusers.logitrackapi.service.interfaces.PurchaseOrderService;
 import com.smartusers.logitrackapi.service.interfaces.SalesOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,21 +30,22 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final SalesOrderRepository salesOrderRepository;
     private final SalesOrderLineRepository salesOrderLineRepository;
     private final UserRepository userRepository;
-    private final InventoryService inventoryService;
     private final InventoryRepository inventoryRepository;
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
+    private final InventoryService inventoryService;
 
+    private final PurchaseOrderService purchaseOrderService;
+    private final SupplierRepository supplierRepository;
+
+    // -------------------- Création d'une commande client --------------------
     @Override
-
-    @Transactional
     public SalesOrder create(SalesOrderRequest request) {
         User client = userRepository.findById(request.getClientId())
-                .orElseThrow(() -> new RuntimeException("Client non trouvé"));
+                .orElseThrow(() -> new BusinessException("Client non trouvé"));
 
         Warehouse warehouse = warehouseRepository.findById(request.getWarehouseId())
-                .orElseThrow(() -> new RuntimeException("Entrepôt non trouvé"));
-
+                .orElseThrow(() -> new BusinessException("Entrepôt non trouvé"));
 
         SalesOrder order = SalesOrder.builder()
                 .client(client)
@@ -51,11 +54,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .createdAt(LocalDateTime.now())
                 .lines(new ArrayList<>())
                 .build();
+
         order = salesOrderRepository.saveAndFlush(order);
 
-        for (var lineReq : request.getOrderLines()) {
+        for (SalesOrderLineRequest lineReq : request.getOrderLines()) {
             Product product = productRepository.findById(lineReq.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+                    .orElseThrow(() -> new BusinessException("Produit non trouvé"));
 
             SalesOrderLine line = SalesOrderLine.builder()
                     .salesOrder(order)
@@ -65,104 +69,122 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .price(lineReq.getUnitPrice())
                     .build();
 
+            salesOrderLineRepository.save(line);
             order.getLines().add(line);
         }
 
-
         return salesOrderRepository.save(order);
     }
 
+    // -------------------- Confirmer une commande --------------------
 
     @Override
-    public SalesOrder confirmerOrderByClient(SalesOrder order) {
+    @Transactional
+    public SalesOrder confirmerOrderByClient(Long orderId) {
+        SalesOrder order = salesOrderRepository.findWithDetailsById(orderId)
+                .orElseThrow(() -> new BusinessException("Commande non trouvée: " + orderId));
+
         boolean allReserved = true;
-        List<SalesOrderLine> lines = salesOrderLineRepository.findBySalesOrder_Id(order.getId());
 
-        for (SalesOrderLine line : lines) {
+        for (SalesOrderLine line : order.getLines()) {
             int needed = line.getQtyOrdered();
-            int reserved = 0;
+            int totalReserved = 0;
+            Long productId = line.getProduct().getId();
 
-            // 🔹 Vérifier disponibilité dans le même entrepôt
-            Optional<Inventory> optInv = inventoryRepository.findByWarehouse_IdAndProduct_Id(
-                    order.getWarehouse().getId(), line.getProduct().getId()
-            );
 
-            Inventory inv = optInv.orElseThrow(() -> new BusinessException(
-                    "Inventaire manquant pour le produit " + line.getProduct().getId() +
-                            " dans l'entrepôt " + order.getWarehouse().getName()
-            ));
+            Inventory mainInventory = inventoryRepository
+                    .findAllByWarehouse_IdAndProduct_Id(order.getWarehouse().getId(), productId)
+                    .stream().findFirst().orElse(null);
 
-            int available = inventoryService.checkAvailableByWarehouse(line.getProduct().getId(), order.getWarehouse().getId());
-            int toReserve = Math.min(available, needed);
-
-            if (toReserve > 0) {
-                inv.setQuantityReserved(inv.getQuantityReserved() + toReserve);
-                inventoryRepository.save(inv);
-                inventoryService.sortieStock(inv.getId(), toReserve, "Réservation locale " + toReserve);
-                reserved += toReserve;
-            }
-
-            // 🔹 Si stock insuffisant, chercher dans d'autres entrepôts
-            if (reserved < needed) {
-                List<Inventory> otherInvs = inventoryRepository.findAllAvailableByProduct(line.getProduct().getId());
-                for (Inventory sourceInv : otherInvs) {
-                    if (sourceInv.getWarehouse().getId().equals(order.getWarehouse().getId())) continue;
-
-                    int availableOther = sourceInv.getQuantityOnHand() - sourceInv.getQuantityReserved();
-                    int transferQty = Math.min(availableOther, needed - reserved);
-
-                    if (transferQty > 0) {
-                        inventoryService.sortieStock(sourceInv.getId(), transferQty, "Transfert vers " + order.getWarehouse().getName());
-
-                        Inventory destInv = inventoryRepository.findByWarehouse_IdAndProduct_Id(
-                                order.getWarehouse().getId(), line.getProduct().getId()
-                        ).orElseGet(() -> {
-                            Inventory newInv = new Inventory();
-                            newInv.setWarehouse(order.getWarehouse());
-                            newInv.setProduct(line.getProduct());
-                            newInv.setQuantityOnHand(0);
-                            newInv.setQuantityReserved(0);
-                            return newInv;
-                        });
-
-                        destInv.setQuantityOnHand(destInv.getQuantityOnHand() + transferQty);
-                        inventoryRepository.save(destInv);
-
-                        inventoryService.addStock(destInv.getId(), transferQty, "Réception transfert " + transferQty);
-
-                        destInv.setQuantityReserved(destInv.getQuantityReserved() + transferQty);
-                        inventoryRepository.save(destInv);
-
-                        reserved += transferQty;
-                    }
-
-                    if (reserved >= needed) break;
+            if (mainInventory != null) {
+                int available = mainInventory.getQuantityOnHand() - mainInventory.getQuantityReserved();
+                int toReserve = Math.min(needed, available);
+                if (toReserve > 0) {
+                    inventoryService.sortieStock(mainInventory.getId(), toReserve,
+                            "Réservation commande " + order.getId() + " - produit " + line.getProduct().getName());
+                    totalReserved += toReserve;
                 }
             }
 
-            if (reserved < needed) allReserved = false;
 
-            line.setQtyReserved(reserved);
-            salesOrderLineRepository.save(line);
+            if (totalReserved < needed) {
+                List<Inventory> otherInventories = inventoryRepository.findAllByProduct_Id(productId).stream()
+                        .filter(inv -> inv.getWarehouse().getActive() && !inv.getWarehouse().getId().equals(order.getWarehouse().getId()))
+                        .toList();
+
+                for (Inventory inv : otherInventories) {
+                    int available = inv.getQuantityOnHand() - inv.getQuantityReserved();
+                    int toReserve = Math.min(needed - totalReserved, available);
+                    if (toReserve > 0) {
+                        inventoryService.sortieStock(inv.getId(), toReserve,
+                                "Réservation commande " + order.getId() + " - produit " + line.getProduct().getName());
+                        totalReserved += toReserve;
+                        if (totalReserved >= needed) break;
+                    }
+                }
+            }
+
+
+            if (totalReserved < needed) {
+                allReserved = false;
+                int missingQty = needed - totalReserved;
+
+                Supplier defaultSupplier = supplierRepository.findByActiveTrue().stream()
+                        .findFirst()
+                        .orElseThrow(() -> new BusinessException("Aucun fournisseur actif trouvé"));
+
+                PurchaseOrderRequest poRequest = new PurchaseOrderRequest();
+                poRequest.setSupplierId(defaultSupplier.getId());
+                poRequest.setOrderLines(List.of(
+                        new PurchaseOrderLineRequest(
+                                line.getProduct().getId(),
+                                missingQty,
+                                line.getPrice()
+                        )
+                ));
+                purchaseOrderService.create(poRequest);
+
+
+                if (mainInventory == null) {
+                    mainInventory = new Inventory();
+                    mainInventory.setProduct(line.getProduct());
+                    mainInventory.setWarehouse(order.getWarehouse());
+                    mainInventory.setQuantityOnHand(0);
+                    mainInventory.setQuantityReserved(0);
+                    mainInventory = inventoryRepository.save(mainInventory);
+                }
+
+                inventoryService.addStock(mainInventory.getId(), missingQty,
+                        "Réception suite au Purchase Order automatique");
+                inventoryService.sortieStock(mainInventory.getId(), missingQty,
+                        "Réservation complémentaire après réapprovisionnement");
+
+                totalReserved += missingQty;
+            }
+
+            line.setQtyReserved(totalReserved);
         }
 
-        order.setStatus(allReserved ? OrderStatus.RESERVED : OrderStatus.CANCELED);
+        order.setStatus(OrderStatus.RESERVED);
+        salesOrderRepository.save(order);
 
-        return salesOrderRepository.save(order);
+        String reservationMessage = allReserved
+                ? "La réservation a été effectuée complètement."
+                : "La réservation est partielle. Un Purchase Order a été créé pour compléter le stock.";
+
+        System.out.println(reservationMessage);
+
+        return order;
     }
 
 
-
-
+    // -------------------- Autres méthodes --------------------
     @Override
     public SalesOrder update(Long id, SalesOrderRequest request) {
-        SalesOrder order = salesOrderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order non trouvé"));
-        return salesOrderRepository.save(order);
+        throw new UnsupportedOperationException("Update non encore implémenté");
     }
 
     @Override
-
     public SalesOrder getById(Long id) {
         return salesOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Commande non trouvée avec l'id: " + id));
@@ -171,21 +193,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     @Override
     public Page<SalesOrder> getAll(Pageable pageable) {
         return salesOrderRepository.findAll(pageable);
-    }
-
-    @Override
-    public Page<SalesOrder> getByClientId(Long clientId, Pageable pageable) {
-        return salesOrderRepository.findByClient_Id(clientId, pageable);
-    }
-
-    @Override
-    public Page<SalesOrder> getByStatus(SalesOrderStatus status, Pageable pageable) {
-        return salesOrderRepository.findByStatus(status, pageable);
-    }
-
-    @Override
-    public Page<SalesOrder> getByClientIdAndStatus(Long clientId, SalesOrderStatus status, Pageable pageable) {
-        return salesOrderRepository.findByClient_IdAndStatus(clientId, status, pageable);
     }
 
     @Override
@@ -207,17 +214,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         SalesOrder order = getById(id);
         order.setStatus(OrderStatus.DELIVERED);
         return salesOrderRepository.save(order);
-    }
-
-    @Override
-    public int releaseExpiredReservations(int expiryDuration) {
-
-        return 0;
-    }
-
-    @Override
-    public List<SalesOrder> getOrdersBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {
-        return salesOrderRepository.findByCreatedAtBetween(startDate, endDate);
     }
 
     @Override

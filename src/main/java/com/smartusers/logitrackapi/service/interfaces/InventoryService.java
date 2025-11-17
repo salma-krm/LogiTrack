@@ -11,11 +11,11 @@ public interface InventoryService {
     Inventory addStock(Long inventoryId, int quantity, String description);
 
     Inventory sortieStock(Long inventoryId, int quantity, String description);
-
+    void reserveStock(Long inventoryId, int quantity);
     Integer checkAvailableByWarehouse(Long productId, Long warehouseId);
 
     Integer checkAvailableInAllWarehouses(Long productId);
-
+    void unreserveStock(Long inventoryId, int quantity);
     Inventory update(Long id, Inventory inventory);
 
     List<Inventory> getAll();
