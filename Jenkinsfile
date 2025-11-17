@@ -50,7 +50,7 @@ pipeline {
           steps {
             script {
               // ⚠️ Remplace 'SonarQubeServer' par le nom exact configuré dans Jenkins
-              withSonarQubeEnv('smartSupply') {
+              withSonarQubeEnv('logiTrack') {
                 bat "${MVN_CMD} sonar:sonar"
               }
             }
