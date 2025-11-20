@@ -118,11 +118,13 @@
                         <goals><goal>report</goal></goals>
                         <configuration>
                             <excludes>
+                                <exclude>com/smartusers/logitrackapi/entity/**</exclude>
                                 <exclude>com/smartusers/logitrackapi/controllers/**</exclude>
                                 <exclude>com/smartusers/logitrackapi/annotation/**</exclude>
                                 <exclude>com/smartusers/logitrackapi/aspect/**</exclude>
                                 <exclude>com/smartusers/logitrackapi/dto/**</exclude>
                                 <exclude>com/smartusers/logitrackapi/mapper/**</exclude>
+                                <exclude>com/smartusers/logitrackapi/Exception/**</exclude>
                             </excludes>
                         </configuration>
 
