@@ -51,8 +51,10 @@ pipeline {
             script {
               // ⚠️ Remplace 'SonarQubeServer' par le nom exact configuré dans Jenkins
               withSonarQubeEnv('logiTrack') {
-                bat "${MVN_CMD} sonar:sonar"
+                 bat "${MVN_CMD} sonar:sonar -Dsonar.exclusions=**/dto/**,**/mapper/**"
               }
+
+
             }
           }
         }

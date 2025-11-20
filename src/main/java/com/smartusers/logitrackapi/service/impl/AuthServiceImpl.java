@@ -72,7 +72,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     // ================== PASSWORD UTILS ==================
-    private String encodePassword(String password) {
+    public String encodePassword(String password) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(password.getBytes());

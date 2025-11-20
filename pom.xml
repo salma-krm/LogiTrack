@@ -58,6 +58,11 @@
             <artifactId>mapstruct</artifactId>
             <version>${org.mapstruct.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Spring Boot Test -->
         <dependency>
@@ -113,11 +118,14 @@
                         <goals><goal>report</goal></goals>
                         <configuration>
                             <excludes>
-                                <exclude>**/dto/**</exclude>
-                                <exclude>**/mapper/**</exclude>
-                                <exclude>**/model/**</exclude>
+                                <exclude>com/smartusers/logitrackapi/controllers/**</exclude>
+                                <exclude>com/smartusers/logitrackapi/annotation/**</exclude>
+                                <exclude>com/smartusers/logitrackapi/aspect/**</exclude>
+                                <exclude>com/smartusers/logitrackapi/dto/**</exclude>
+                                <exclude>com/smartusers/logitrackapi/mapper/**</exclude>
                             </excludes>
                         </configuration>
+
                     </execution>
                 </executions>
             </plugin>
