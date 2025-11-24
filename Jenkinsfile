@@ -1,13 +1,13 @@
 pipeline {
-  agent any
+  agent any //executer n'importe quel agent disponible
   tools {
-      // Hna fin katgol l Jenkins ykhdem b JDK-17
+      // les outils li 3mrtihom f Jenkins Global Tool Configuration
       jdk 'JDK-17' // <-- Smiya li derti f Global Tool Configuration
       maven 'maven' // Mzyan t7aded tal version d Maven
   }
 
   environment {
-    MVN_CMD = "mvnw.cmd"
+    MVN_CMD = "mvnw.cmd" // Utilisation de Maven Wrapper pour Windows
     MAVEN_OPTS = "-Xmx1g"
   }
 
@@ -24,7 +24,7 @@ pipeline {
       steps {
         checkout scm
         // Windows diagnostics only
-        bat 'dir'
+       //bat 'dir'
       }
     }
 
