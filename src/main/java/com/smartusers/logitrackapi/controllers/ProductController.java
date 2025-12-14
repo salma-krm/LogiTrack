@@ -19,8 +19,7 @@ import static org.springframework.http.ResponseEntity.ok;
 public class ProductController {
 
     private final ProductService productService;
-//    @RequireAuth
-//    @RequireRole("ADMIN")
+
     @PostMapping
     public Product createProduct(@RequestBody Product product) {
         return productService.createProduct(product);

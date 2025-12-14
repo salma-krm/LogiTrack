@@ -38,7 +38,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final PurchaseOrderService purchaseOrderService;
     private final SupplierRepository supplierRepository;
 
-    // -------------------- Création d'une commande client --------------------
     @Override
     public SalesOrder create(SalesOrderRequest request) {
         User client = userRepository.findById(request.getClientId())
@@ -76,7 +75,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return salesOrderRepository.save(order);
     }
 
-    // -------------------- Confirmer une commande --------------------
+
 
     @Override
     @Transactional
@@ -178,7 +177,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
 
-    // -------------------- Autres méthodes --------------------
+
     @Override
     public SalesOrder update(Long id, SalesOrderRequest request) {
         throw new UnsupportedOperationException("Update non encore implémenté");

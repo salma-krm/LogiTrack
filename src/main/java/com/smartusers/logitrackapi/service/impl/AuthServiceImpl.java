@@ -11,11 +11,9 @@ import com.smartusers.logitrackapi.mapper.UserMapper;
 import com.smartusers.logitrackapi.repository.UserRepository;
 import com.smartusers.logitrackapi.service.interfaces.AuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.security.MessageDigest;
-import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +21,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-    private final AuthMapper authMapper; // Mapper pour AuthResponse
+    private final AuthMapper authMapper;
+    private final PasswordEncoder passwordEncoder;
     private final SessionManager sessionManager;
 
     // ================== REGISTER ==================
@@ -34,16 +33,10 @@ public class AuthServiceImpl implements AuthService {
             throw new DuplicateResourceException("This email is already in use");
         }
 
-        // Convertir DTO -> User
         User user = userMapper.toEntity(request);
-
-        // Hasher le mot de passe
-        user.setPassword(encodePassword(request.getPassword()));
-
-        // Sauvegarder dans la base
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         User savedUser = userRepository.save(user);
 
-        // Retourner AuthResponse avec mapper
         return authMapper.toAuthResponse(savedUser);
     }
 
@@ -58,10 +51,11 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("Account is not active");
         }
 
-        if (!checkPassword(request.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException("Invalid email or password");
         }
 
+        // Optionally create session
         return authMapper.toAuthResponse(user);
     }
 
@@ -69,20 +63,5 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout(String sessionId) {
         sessionManager.invalidateSession(sessionId);
-    }
-
-    // ================== PASSWORD UTILS ==================
-    public String encodePassword(String password) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(password.getBytes());
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (Exception e) {
-            throw new BusinessException("Error encoding password");
-        }
-    }
-
-    private boolean checkPassword(String rawPassword, String encodedPassword) {
-        return encodePassword(rawPassword).equals(encodedPassword);
     }
 }

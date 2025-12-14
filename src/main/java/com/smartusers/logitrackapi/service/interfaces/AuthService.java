@@ -5,7 +5,10 @@ import com.smartusers.logitrackapi.dto.auth.LoginRequest;
 import com.smartusers.logitrackapi.dto.auth.RegisterRequest;
 
 public interface AuthService {
-    public void logout(String sessionId);
-    public AuthResponse login(LoginRequest request);
+
     public AuthResponse register(RegisterRequest request);
+
+    AuthResponse login(LoginRequest request);
+
+    void logout(String sessionId);
 }

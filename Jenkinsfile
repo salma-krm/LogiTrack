@@ -24,7 +24,7 @@ pipeline {
       steps {
         checkout scm
         // Windows diagnostics only
-       //bat 'dir'
+       bat 'dir'
       }
     }
 
