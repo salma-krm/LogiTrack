@@ -1,6 +1,7 @@
 package com.smartusers.logitrackapi.config;
 
 
+import com.smartusers.logitrackapi.entity.User;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -47,7 +48,6 @@ public class SecurityConfig {
                         .hasAnyRole("CLIENT", "ADMIN")
                         .requestMatchers("/api/**").authenticated()
                 )
-
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(
                                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
@@ -59,4 +59,5 @@ public class SecurityConfig {
 
         return http.build();
     }
+
 }
