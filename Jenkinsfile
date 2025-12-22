@@ -1,9 +1,9 @@
 pipeline {
-  agent any //executer n'importe quel agent disponible
+  agent any
   tools {
-      // les outils li 3mrtihom f Jenkins Global Tool Configuration
-      jdk 'JDK-17' // <-- Smiya li derti f Global Tool Configuration
-      maven 'maven' // Mzyan t7aded tal version d Maven
+
+      jdk 'JDK-17'
+      maven 'maven'
   }
 
   environment {
@@ -49,7 +49,7 @@ pipeline {
      stage('SonarQube Analysis') {
           steps {
             script {
-              // ⚠️ Remplace 'SonarQubeServer' par le nom exact configuré dans Jenkins
+
               withSonarQubeEnv('logiTrack') {
                  bat "${MVN_CMD} sonar:sonar -Dsonar.exclusions=**/dto/**,**/mapper/**,**/entity/**,**/controllers/**"
               }
