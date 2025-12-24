@@ -5,6 +5,7 @@ import com.smartusers.logitrackapi.entity.User;
 import com.smartusers.logitrackapi.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -17,7 +18,12 @@ public class RefreshTokenService {
 
     private final long REFRESH_TOKEN_DURATION = 7 * 24 * 60 * 60 * 1000L;
 
+    @Transactional
     public RefreshToken createRefreshToken(User user) {
+
+
+        refreshTokenRepository.deleteByUser(user);
+
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
                 .token(UUID.randomUUID().toString())
@@ -31,12 +37,12 @@ public class RefreshTokenService {
         return refreshToken.getExpiryDate().isAfter(Instant.now());
     }
 
-    public void deleteByUser(User user) {
-        refreshTokenRepository.deleteByUser(user);
-    }
-
     public RefreshToken findByToken(String token) {
         return refreshTokenRepository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Refresh Token not found"));
+                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+    }
+
+    public void deleteByUser(User user) {
+        refreshTokenRepository.deleteByUser(user);
     }
 }
