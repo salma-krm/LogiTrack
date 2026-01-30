@@ -33,6 +33,9 @@ public class Product {
     private BigDecimal profit;
     private String unit;
 
+    @Column(length = 500)
+    private String photo;
+
     @Column(nullable = false)
     private Boolean active = true;
 

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Appender Console -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Logstash Appender - UNIQUEMENT pour le profil non-test -->
+    <springProfile name="!test">
+        <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+            <destination>localhost:5000</destination>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeContext>true</includeContext>
+                <includeMdc>true</includeMdc>
+                <includeStructuredArguments>true</includeStructuredArguments>
+                <includeTags>true</includeTags>
+            </encoder>
+        </appender>
+
+        <!-- Logger pour votre application -->
+        <logger name="com.smartusers.logitrackapi" level="DEBUG" additivity="false">
+            <appender-ref ref="LOGSTASH"/>
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+
+        <!-- Logger pour Spring Security (debug JWT) -->
+        <logger name="org.springframework.security" level="DEBUG" additivity="false">
+            <appender-ref ref="LOGSTASH"/>
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+
+        <root level="INFO">
+            <appender-ref ref="LOGSTASH"/>
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- Configuration pour les tests - PAS de Logstash -->
+    <springProfile name="test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <!-- Logs Testcontainers -->
+        <logger name="org.testcontainers" level="INFO"/>
+        <logger name="tc" level="INFO"/>
+
+        <!-- Logs de l'application -->
+        <logger name="com.smartusers.logitrackapi" level="DEBUG"/>
+
+        <!-- Réduire les logs verbeux -->
+        <logger name="org.hibernate" level="WARN"/>
+        <logger name="org.springframework" level="WARN"/>
+    </springProfile>
+
+</configuration>

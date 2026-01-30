@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface ProductService {
     ProductResponse desactivitedProduct(String SKU);
+    ProductResponse deactivateProduct(Long id);
     Product createProduct(Product product);
     List<Product> getAllProducts();
     Product getProductById(Long id);

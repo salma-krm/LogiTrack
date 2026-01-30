@@ -1,12 +1,14 @@
 package com.smartusers.logitrackapi.service.impl;
 
 import com.smartusers.logitrackapi.dto.Product.ProductResponse;
+import com.smartusers.logitrackapi.entity.Category;
 import com.smartusers.logitrackapi.entity.Inventory;
 import com.smartusers.logitrackapi.entity.Product;
 import com.smartusers.logitrackapi.entity.SalesOrder;
 import com.smartusers.logitrackapi.entity.SalesOrderLine;
 import com.smartusers.logitrackapi.enums.OrderStatus;
 import com.smartusers.logitrackapi.mapper.ProductMapper;
+import com.smartusers.logitrackapi.repository.CategoryRepository;
 import com.smartusers.logitrackapi.repository.InventoryRepository;
 import com.smartusers.logitrackapi.repository.ProductRepository;
 import com.smartusers.logitrackapi.repository.SalesOrderLineRepository;
@@ -23,6 +25,7 @@ import java.util.Optional;
 public class ProductImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
     private final InventoryRepository inventoryRepository;
     private final ProductMapper productMapper;
 
@@ -30,8 +33,6 @@ public class ProductImpl implements ProductService {
     private final SalesOrderRepository salesOrderRepository;
 
     @Override
-
-
     public ProductResponse desactivitedProduct(String SKU) {
         Product product = productRepository.findBySku(SKU);
         if (product == null) {
@@ -71,6 +72,13 @@ public class ProductImpl implements ProductService {
 
 
     @Override
+    public ProductResponse deactivateProduct(Long id) {
+        // Récupère le produit par ID puis réutilise la logique existante basée sur le SKU
+        Product product = getProductById(id);
+        return desactivitedProduct(product.getSku());
+    }
+
+    @Override
     public Product createProduct(Product product) {
 
         if (productRepository.existsBySku(product.getSku())) {
@@ -81,12 +89,12 @@ public class ProductImpl implements ProductService {
 
     @Override
     public List<Product> getAllProducts() {
-        return productRepository.findAll();
+        return productRepository.findAllWithCategories();
     }
 
     @Override
     public Product getProductById(Long id) {
-        return productRepository.findById(id)
+        return productRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
     }
 
@@ -105,6 +113,7 @@ public class ProductImpl implements ProductService {
         existing.setOriginalPrice(product.getOriginalPrice());
         existing.setProfit(product.getProfit());
         existing.setUnit(product.getUnit());
+        existing.setPhoto(product.getPhoto());
         existing.setActive(product.getActive());
         return productRepository.save(existing);
     }
@@ -113,9 +122,61 @@ public class ProductImpl implements ProductService {
     public void deleteProduct(Long id) {
         productRepository.deleteById(id);
     }
+
     @Override
     public List<Product> searchProductsByName(String name) {
         return productRepository.findByNameContainingIgnoreCase(name);
     }
 
+    // Nouvelle méthode pour assigner des catégories par défaut
+    public String assignDefaultCategoriesToProducts() {
+        // Créer les catégories par défaut si elles n'existent pas
+        Category electronicsCategory = categoryRepository.findByName("Electronics")
+                .orElseGet(() -> {
+                    Category category = new Category();
+                    category.setName("Electronics");
+                    return categoryRepository.save(category);
+                });
+
+        Category generalCategory = categoryRepository.findByName("General")
+                .orElseGet(() -> {
+                    Category category = new Category();
+                    category.setName("General");
+                    return categoryRepository.save(category);
+                });
+
+        Category beautyCategory = categoryRepository.findByName("Beauty")
+                .orElseGet(() -> {
+                    Category category = new Category();
+                    category.setName("Beauty");
+                    return categoryRepository.save(category);
+                });
+
+        // Récupérer tous les produits sans catégorie
+        List<Product> productsWithoutCategory = productRepository.findAll().stream()
+                .filter(product -> product.getCategory() == null)
+                .toList();
+
+        int updatedCount = 0;
+
+        // Assigner des catégories basées sur le nom du produit
+        for (Product product : productsWithoutCategory) {
+            Category categoryToAssign = generalCategory; // Par défaut
+
+            String productName = product.getName().toLowerCase();
+
+            if (productName.contains("écran") || productName.contains("dell") || productName.contains("screen")) {
+                categoryToAssign = electronicsCategory;
+            } else if (productName.contains("beauty") || productName.contains("cosmetic")) {
+                categoryToAssign = beautyCategory;
+            }
+
+            product.setCategory(categoryToAssign);
+            productRepository.save(product);
+            updatedCount++;
+        }
+
+        return "Assigned categories to " + updatedCount + " products. Electronics: " + electronicsCategory.getId() +
+               ", General: " + generalCategory.getId() + ", Beauty: " + beautyCategory.getId();
+    }
 }

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configuration Logback pour les TESTS - Pas de Logstash -->
+<configuration>
+
+    <!-- Appender Console uniquement -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root logger - Console uniquement, PAS de Logstash -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- Logs Testcontainers -->
+    <logger name="org.testcontainers" level="INFO"/>
+    <logger name="tc" level="INFO"/>
+    <logger name="com.github.dockerjava" level="WARN"/>
+
+    <!-- Logs de l'application -->
+    <logger name="com.smartusers.logitrackapi" level="DEBUG"/>
+
+    <!-- Réduire les logs verbeux -->
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.springframework.test" level="INFO"/>
+
+</configuration>
+

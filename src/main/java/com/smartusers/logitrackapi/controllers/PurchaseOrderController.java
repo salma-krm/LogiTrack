@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -18,24 +19,28 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/purchase-orders")
+@CrossOrigin("*")
 public class PurchaseOrderController {
 
     private final PurchaseOrderService purchaseOrderService;
     private final PurchaseOrderMapper purchaseOrderMapper;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public PurchaseOrderResponse create(@Valid @RequestBody PurchaseOrderRequest request) {
         PurchaseOrder po = purchaseOrderService.create(request);
         return purchaseOrderMapper.toResponse(po);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public PurchaseOrderResponse update(@PathVariable Long id, @Valid @RequestBody PurchaseOrderRequest request) {
         PurchaseOrder po = purchaseOrderService.update(id, request);
         return purchaseOrderMapper.toResponse(po);
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public List<PurchaseOrderResponse> getAll() {
         return purchaseOrderService.getAll()
                 .stream()
@@ -44,12 +49,14 @@ public class PurchaseOrderController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
     public PurchaseOrderResponse getById(@PathVariable Long id) {
         PurchaseOrder po = purchaseOrderService.getById(id);
         return purchaseOrderMapper.toResponse(po);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public void delete(@PathVariable Long id) {
         purchaseOrderService.delete(id);
     }

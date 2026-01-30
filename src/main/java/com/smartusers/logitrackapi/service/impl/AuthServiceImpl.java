@@ -13,12 +13,14 @@ import com.smartusers.logitrackapi.security.JwtService;
 import com.smartusers.logitrackapi.security.RefreshTokenService;
 import com.smartusers.logitrackapi.service.interfaces.AuthService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -27,7 +29,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
 
-    // ✅ REGISTER
+
     @Transactional
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -35,6 +37,7 @@ public class AuthServiceImpl implements AuthService {
         String email = request.getEmail().trim().toLowerCase();
 
         if (userRepository.existsByEmail(email)) {
+            log.warn("Registration failed: email already in use={}", email);
             throw new DuplicateResourceException("Email already in use");
         }
 
@@ -47,10 +50,12 @@ public class AuthServiceImpl implements AuthService {
 
         String token = jwtService.generateToken(user.getEmail());
 
+        log.info("User registered: email={} id={}", user.getEmail(), user.getId());
+
         return buildResponse(user, token, null);
     }
 
-    // ✅ LOGIN
+
     @Transactional
     @Override
     public AuthResponse login(LoginRequest request) {
@@ -59,18 +64,25 @@ public class AuthServiceImpl implements AuthService {
         String password = request.getPassword().trim();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException("Invalid email or password"));
+                .orElseThrow(() -> {
+                    log.warn("Login failed: user not found email={}", email);
+                    return new BusinessException("Invalid email or password");
+                });
 
         if (!user.getIsActive()) {
+            log.warn("Login failed: account not active email={}", email);
             throw new BusinessException("Account not active");
         }
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
+            log.warn("Login failed: bad credentials email={}", email);
             throw new BusinessException("Invalid email or password");
         }
 
         String accessToken = jwtService.generateToken(user.getEmail());
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+        log.info("Login successful: email={} id={}", user.getEmail(), user.getId());
 
         return buildResponse(user, accessToken, refreshToken.getToken());
     }

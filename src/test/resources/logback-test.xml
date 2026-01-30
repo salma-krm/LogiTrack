@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Appender Console pour les tests -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Désactiver les logs pendant les tests (sauf erreurs) -->
+    <root level="ERROR">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- Logs Spring Boot essentiels -->
+    <logger name="org.springframework.boot" level="WARN"/>
+    <logger name="org.springframework.test" level="WARN"/>
+
+    <!-- Logs Testcontainers (utiles pour voir le démarrage des conteneurs) -->
+    <logger name="org.testcontainers" level="INFO"/>
+    <logger name="tc" level="INFO"/>
+
+    <!-- Logs de votre application (ajustez selon vos besoins) -->
+    <logger name="com.smartusers.logitrackapi" level="DEBUG"/>
+
+    <!-- Désactiver les logs Hibernate verbeux -->
+    <logger name="org.hibernate" level="WARN"/>
+
+</configuration>
+

@@ -1,11 +1,7 @@
 package com.smartusers.logitrackapi.dto.Product;
 
-
-
-import com.smartusers.logitrackapi.entity.Inventory;
 import lombok.*;
 import java.math.BigDecimal;
-import java.util.List;
 
 @Getter
 @Setter
@@ -19,6 +15,8 @@ public class ProductResponse {
     private BigDecimal originalPrice;
     private BigDecimal profit;
     private String unit;
+    private String photo;
     private Boolean active;
     private Long categoryId;
+    private String categoryName;
 }
